@@ -1,26 +1,33 @@
-
 name: Build Android APK
 on:
-  push:
-    branches: [ "main" ]
+  push: { branches: [ main, master ] }
   workflow_dispatch:
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
-          java-version: '17'
-      - name: Build with Gradle
-        uses: gradle/gradle-build-action@v2
+          distribution: temurin
+          java-version: 17
+
+      # Install Gradle 8.7 (AGP 8.5.0 requires Gradle 8.7)
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v3
         with:
-          arguments: assembleDebug
+          gradle-version: 8.7
+
+      # Build the debug APK using the installed Gradle (no wrapper needed)
+      - name: Build APK
+        run: gradle assembleDebug
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: AlteWeserWind-APK
+          name: AlteWeserWind-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
