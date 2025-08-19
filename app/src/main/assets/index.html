@@ -1,0 +1,38 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Wind Widget</title>
+  <style>
+    body { display:flex; justify-content:center; align-items:center; height:100vh; background:#111; color:#fff; font-family:sans-serif;}
+    .card { background:#222; padding:20px; border-radius:12px; text-align:center;}
+    #arrow { width:0; height:0; border-left:20px solid transparent; border-right:20px solid transparent; border-bottom:40px solid #4fc3f7; margin:20px auto; transform-origin:50% 100%;}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>Alte Weser Wind</h2>
+    <div id="speed">-- kn</div>
+    <div id="degree">--°</div>
+    <div id="arrow"></div>
+  </div>
+  <script>
+    async function fetchData() {
+      try {
+        // Replace with real Pegelonline API endpoint if needed
+        const res = await fetch("https://www.pegelonline.wsv.de/webservices/rest-api/v2/stations/ALTE%20WESER.json?includeCurrentMeasurement=true");
+        const data = await res.json();
+        const deg = data.currentMeasurement?.windDirection || 0;
+        const spd = data.currentMeasurement?.windSpeed || 0;
+        document.getElementById("speed").textContent = spd + " kn";
+        document.getElementById("degree").textContent = deg + "°";
+        document.getElementById("arrow").style.transform = "rotate(" + (deg+180) + "deg)";
+      } catch(e) {
+        document.getElementById("speed").textContent = "Error";
+      }
+    }
+    fetchData();
+  </script>
+</body>
+</html>
