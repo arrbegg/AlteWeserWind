@@ -1,2 +1,2 @@
-# Alte Weser Wind
+# Alte Weser Wind Widget
 Android widget + app for wind at Leuchtturm Alte Weser.
