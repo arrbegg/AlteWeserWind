@@ -1,0 +1,34 @@
+
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Alte Weser Wind</title>
+<style>
+html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif}
+.wrap{min-height:100%;display:grid;place-items:center;background:#0f172a;color:#e2e8f0}
+.card{padding:24px 28px;border-radius:16px;background:#111827;box-shadow:0 10px 25px rgba(0,0,0,.35);width:min(580px,94vw)}
+.title{font-size:20px;letter-spacing:.3px;opacity:.9}.big{font-size:56px;font-weight:700;margin:8px 0 2px;transition:color .2s ease}
+.sub{opacity:.9;margin-top:4px;transition:color .2s ease}.row{display:flex;gap:12px;flex-wrap:wrap;align-items:baseline}
+.muted{opacity:.7}.err{color:#fecaca}.footer{margin-top:12px;font-size:13px;opacity:.7;display:flex;align-items:center;gap:12px}
+button{appearance:none;border:0;border-radius:12px;padding:10px 14px;background:#2563eb;color:#fff;font-weight:600;cursor:pointer;margin-left:auto}
+details{margin-top:12px}code{white-space:pre-wrap;word-break:break-word}.arrow{display:inline-block;transform-origin:50% 50%;font-weight:800}
+</style></head><body>
+<div class="wrap"><div class="card"><div class="title">Leuchtturm Alte Weser</div>
+<div id="status" class="muted">Loading…</div>
+<div id="content" style="display:none"><div class="row">
+<div class="big" id="speed">–.– m/s</div></div>
+<div class="sub" id="alt"></div><div class="sub" id="when"></div></div>
+<div class="footer"><span id="refreshInfo">Auto-refresh every 60 s.</span><button id="refreshBtn">Refresh now</button></div>
+<details id="dbgWrap" style="display:none;"><summary>Debug</summary><div class="sub">Timeseries on station:</div><code id="dbg"></code></details>
+</div></div>
+<script>
+const BFT=[{n:0,lo:0,hi:0.2},{n:1,lo:0.3,hi:1.5},{n:2,lo:1.6,hi:3.3},{n:3,lo:3.4,hi:5.4},{n:4,lo:5.5,hi:7.9},{n:5,lo:8,hi:10.7},{n:6,lo:10.8,hi:13.8},{n:7,lo:13.9,hi:17.1},{n:8,lo:17.2,hi:20.7},{n:9,lo:20.8,hi:24.4},{n:10,lo:24.5,hi:28.4},{n:11,lo:28.5,hi:32.6},{n:12,lo:32.7,hi:1e9}];
+function bftFromMs(v){for(const b of BFT){if(v<.3&&b.n===0)return b;if(v>=b.lo&&v<=b.hi)return b}return BFT[BFT.length-1]}
+function formatRangeMs(b){if(!isFinite(b.hi))return `≥ ${b.lo.toFixed(1)} m/s`;if(b.n===0)return "< 0.3 m/s";return `${b.lo.toFixed(1)}–${b.hi.toFixed(1)} m/s`}
+function colorForBeaufort(n){if(n<=2)return"#60a5fa";if(n<=4)return"#22c55e";if(n===5)return"#eab308";if(n===6)return"#f97316";if(n<=9)return"#ef4444";return"#a21caf"}
+(function(){
+const stationUuid="c6772c3c-a6bb-4728-9250-a408ab3856bd";
+const url="https://www.pegelonline.wsv.de/webservices/rest-api/v2/stations/"+stationUuid+".json?includeTimeseries=true&includeCurrentMeasurement=true";
+const statusEl=document.getElementById("status"),contentEl=document.getElementById("content"),speedEl=document.getElementById("speed"),altEl=document.getElementById("alt"),whenEl=document.getElementById("when"),refreshBtn=document.getElementById("refreshBtn"),dbgWrap=document.getElementById("dbgWrap"),dbg=document.getElementById("dbg");
+function pickWindTs(ts){const l=ts||[];let c=l.filter(t=>(((t.shortname||"")+(t.longname||"")).toLowerCase().includes("wind")|| (t.unit||"").toLowerCase()==="m/s"));c.sort((a,b)=>(((a.unit||"").toLowerCase()==="m/s")?0:1)-(((b.unit||"").toLowerCase()==="m/s")?0:1));return c[0]}
+function pickDirTs(ts){const l=ts||[];return l.find(t=>(((t.shortname||"")+(t.longname||"")).toLowerCase().includes("wind")&&((t.unit||"").toLowerCase().includes("grad")||(t.unit||"").includes("°"))))}
+async function fetchWind(){try{refreshBtn.disabled=true;statusEl.textContent="Loading…";const resp=await fetch(url,{headers:{"Accept":"application/json"}});if(!resp.ok)throw new Error("HTTP "+resp.status);const data=await resp.json();const windTs=pickWindTs(data.timeseries),dirTs=pickDirTs(data.timeseries);dbgWrap.style.display="block";dbg.textContent=JSON.stringify((data.timeseries||[]).map(t=>({shortname:t.shortname,longname:t.longname,unit:t.unit,hasCurrent:!!t.currentMeasurement})),null,2);if(!windTs||!windTs.currentMeasurement)throw new Error("Wind timeseries not found");const v=windTs.currentMeasurement.value,t=windTs.currentMeasurement.timestamp,dt=new Date(t),kmh=v*3.6,kn=v*1.943844,b=bftFromMs(v),bRange=formatRangeMs(b),color=colorForBeaufort(b.n);speedEl.textContent=v.toFixed(1)+" m/s";speedEl.style.color=color;let alt=`≈ ${kmh.toFixed(1)} km/h • ${kn.toFixed(1)} kn • Bft ${b.n} (${bRange})`;if(dirTs&&dirTs.currentMeasurement){const degFrom=Math.round(((dirTs.currentMeasurement.value%360)+360)%360);const degTo=(degFrom+180)%360;alt+=` • <span class="arrow" style="transform: rotate(${degTo}deg)">↑</span> ${degFrom}°`}altEl.innerHTML=alt;altEl.style.color=color;const pad=n=>n.toString().padStart(2,"0");const tsStr=pad(dt.getDate())+"."+pad(dt.getMonth()+1)+"."+dt.getFullYear()+" "+pad(dt.getHours())+":"+pad(dt.getMinutes())+":"+pad(dt.getSeconds());whenEl.textContent="Updated: "+tsStr;statusEl.textContent="";contentEl.style.display=""}catch(e){statusEl.innerHTML="<span class='err'>"+(e&&e.message?e.message:"Network error")+"</span>";contentEl.style.display="none"}finally{refreshBtn.disabled=false}}refreshBtn.addEventListener("click",fetchWind);fetchWind();setInterval(fetchWind,6e4)})();
+</script></body></html>
